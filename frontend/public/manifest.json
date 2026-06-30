@@ -9,13 +9,13 @@
   "orientation": "portrait",
   "icons": [
    {
-    "src": "/icono-jorge.ico",
+    "src": "/icono-jorge.svg",
     "sizes": "512x512",
     "type": "image/png",
     "purpose": "any maskable"
   },
     {
-      "src": "/icono-jorge.ico",
+      "src": "/icono-jorge.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
