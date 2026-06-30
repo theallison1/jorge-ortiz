@@ -203,9 +203,9 @@ export default function VehiclesPage() {
                             loading="lazy"
                           />
                           {/* Contador de fotos */}
-                          <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                            {index + 1} / {car.imagenes.length}
-                          </span>
+<span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+  {index + 1} / {car.imagenes?.length}
+</span>
                         </div>
                       ))}
                     </div>
