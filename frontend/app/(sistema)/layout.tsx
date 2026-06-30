@@ -87,7 +87,7 @@ const handleLogout = () => {
 <div className="p-6 border-b border-slate-800 flex items-center justify-center">
   <Link href="/vehicles" className="flex items-center justify-center transition active:scale-95">
     <img 
-      src="/icono-jorge.svg" 
+      src="/icono-jorge.ico" 
       alt="Jorge Ortiz Automotores Logo" 
       className="h-10 w-auto object-contain"
     />
