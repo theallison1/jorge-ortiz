@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const URL_BACKEND = 'http://localhost:4000/api/vehicles';
+  const URL_BACKEND = 'https://jorge-ortiz.onrender.com/api/vehicles';
 
   useEffect(() => {
     const fetchMetrics = async () => {

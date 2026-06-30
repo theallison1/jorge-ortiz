@@ -23,7 +23,7 @@ export default function VehiclesPage() {
   const [kilometros, setKilometros] = useState('');
   const [precio, setPrecio] = useState('');
 
-  const URL_BACKEND = 'http://localhost:4000/api/vehicles';
+const URL_BACKEND = 'https://jorge-ortiz.onrender.com/api/vehicles';
 
   const fetchVehicles = async () => {
     try {
