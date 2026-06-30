@@ -10,13 +10,13 @@
   "icons": [
    {
     "src": "/icono-jorge.ico",
-    "sizes": "48x48",
+    "sizes": "512x512",
     "type": "image/png",
     "purpose": "any maskable"
   },
     {
       "src": "/icono-jorge.ico",
-      "sizes": "48x48",
+      "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
