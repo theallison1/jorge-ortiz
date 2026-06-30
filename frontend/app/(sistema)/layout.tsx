@@ -43,15 +43,15 @@ export default function SistemaLayout({
     };
   }, []);
 
-  const handleLogout = () => {
-    // 1. Borramos la cookie del token poniéndole fecha de expiración en el pasado
+const handleLogout = () => {
+    // 1. Borramos la cookie asegurando que expire con una fecha vieja
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
     
-    // 2. Redirigimos al Login de inmediato
-    router.push('/login');
-    
-    // 3. Forzamos un refresco rápido para limpiar cualquier estado en memoria
-    router.refresh();
+    // 2. Doble verificación: limpiamos por las dudas si quedó en otra ruta
+    document.cookie = "token=; path=/(sistema); expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+
+    // 3. Forzamos un redireccionamiento duro del navegador (esto destruye la caché de Next.js)
+    window.location.href = '/login';
   };
 
   const handleInstallClick = async () => {
