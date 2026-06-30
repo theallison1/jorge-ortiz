@@ -28,7 +28,6 @@ export default function SistemaLayout({
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
  useEffect(() => {
-    // 1. Capturar el botón de instalación
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -36,16 +35,6 @@ export default function SistemaLayout({
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-
-    // 2. REGISTRAR EL SERVICE WORKER PARA CELULARES
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker
-          .register("/sw.js")
-          .then((reg) => console.log("Service Worker registrado con éxito!", reg.scope))
-          .catch((err) => console.error("Error al registrar el Service Worker:", err));
-      });
-    }
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
