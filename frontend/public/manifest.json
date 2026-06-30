@@ -1,0 +1,23 @@
+{
+  "name": "Ortiz Automotores",
+  "short_name": "OrtizAuto",
+  "description": "Sistema de gestión de stock para Ortiz Automotores",
+  "start_url": "/vehicles",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/window.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
