@@ -2,30 +2,37 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
+  // 1. Intentamos leer el token de las cookies
   const token = request.cookies.get('token')?.value;
+  
   const { pathname } = request.nextUrl;
 
-  // 1. SI ENTRA A LA RAÍZ PELADA (/) 
-  if (pathname === '/') {
-    // Si tiene token va al catálogo, si no, al login directo
-    const targetUrl = token ? '/vehicles' : '/login';
-    return NextResponse.redirect(new URL(targetUrl, request.url));
-  }
+  // 2. Si el usuario intenta entrar a rutas del sistema PERO NO tiene token, lo rebotamos al login
+  const rutasPrivadas = ['/dashboard', '/vehicles', '/clients', '/sales', '/settings'];
+  
+  const esRutaPrivada = rutasPrivadas.some(ruta => pathname.startsWith(ruta));
 
-  // 2. SI NO HAY TOKEN y quiere entrar al catálogo (/vehicles) -> al login
-  if (!token && pathname.startsWith('/vehicles')) {
+  if (esRutaPrivada && !token) {
+    // Si no hay token en la cookie, lo mandamos al login de prepo
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // 3. SI YA TIENE TOKEN e intenta ir al login -> al catálogo
-  if (token && pathname.startsWith('/login')) {
-    return NextResponse.redirect(new URL('/vehicles', request.url));
+  // 3. Si tiene token e intenta ir al login, lo mandamos directo al dashboard para que no se vuelva a loguear
+  if (pathname === '/login' && token) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return NextResponse.next();
 }
 
-// Agregamos la raíz '/' al matcher para que el middleware la intercepte
+// Configuración para que el middleware se ejecute en tus rutas privadas y en el login
 export const config = {
-  matcher: ['/', '/vehicles/:path*', '/login'],
+  matcher: [
+    '/dashboard/:path*',
+    '/vehicles/:path*',
+    '/clients/:path*',
+    '/sales/:path*',
+    '/settings/:path*',
+    '/login'
+  ],
 };
