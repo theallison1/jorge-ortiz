@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { 
@@ -11,7 +11,8 @@ import {
   FaCog, 
   FaSignOutAlt,
   FaBars,
-  FaTimes
+  FaTimes,
+  FaDownload // Icono para el botón de instalar
 } from "react-icons/fa";
 
 export default function SistemaLayout({
@@ -21,6 +22,42 @@ export default function SistemaLayout({
 }) {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  // 📱 Estados para la instalación de la PWA
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      // Previene que Chrome muestre su propio cartel molesto
+      e.preventDefault();
+      // Guarda el evento para usarlo cuando presionen nuestro botón
+      setDeferredPrompt(e);
+      // Muestra nuestro botón personalizado
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    
+    // Muestra el prompt nativo de instalación
+    deferredPrompt.prompt();
+    
+    // Espera la respuesta del usuario
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`Usuario eligió instalar: ${outcome}`);
+    
+    // Limpiamos el estado porque el prompt ya se usó
+    setDeferredPrompt(null);
+    setShowInstallBtn(false);
+  };
 
   const menuItems = [
     { name: "Dashboard", href: "/dashboard", icon: FaChartLine },
@@ -33,13 +70,15 @@ export default function SistemaLayout({
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden text-black">
       
-      {/* SIDEBAR PARA COMPUTADORA (hidden md:flex lo oculta en celular) */}
+      {/* SIDEBAR PARA COMPUTADORA */}
       <aside className="w-64 bg-slate-900 text-white flex flex-col justify-between hidden md:flex">
         <div>
           {/* Logo / Nombre Concesionaria */}
-          <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-            <FaCar className="text-blue-500 text-2xl" />
-            <span className="font-bold text-xl tracking-wider">ORTIZ_AUTO</span>
+          <div className="p-6 border-b border-slate-800 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <FaCar className="text-blue-500 text-2xl" />
+              <span className="font-bold text-xl tracking-wider">ORTIZ_AUTO</span>
+            </div>
           </div>
 
           {/* Opciones del Menú */}
@@ -65,8 +104,18 @@ export default function SistemaLayout({
           </nav>
         </div>
 
-        {/* Cierre de Sesión */}
-        <div className="p-4 border-t border-slate-800">
+        {/* Sección inferior Sidebar: Instalar + Cerrar Sesión */}
+        <div className="p-4 border-t border-slate-800 space-y-2">
+          {showInstallBtn && (
+            <button
+              onClick={handleInstallClick}
+              className="w-full flex items-center gap-4 px-4 py-3 rounded-xl font-bold bg-green-600 text-white hover:bg-green-700 transition-all shadow-lg"
+            >
+              <FaDownload size={20} />
+              Instalar App PC
+            </button>
+          )}
+
           <Link 
             href="/login"
             className="flex items-center gap-4 px-4 py-3 rounded-xl font-medium text-red-400 hover:bg-red-950/30 transition-all"
@@ -80,10 +129,9 @@ export default function SistemaLayout({
       {/* CONTENEDOR PRINCIPAL */}
       <div className="flex-1 flex flex-col overflow-hidden w-full">
         
-        {/* HEADER RESPONSIVO (Solo se ve en celular/tablet) */}
+        {/* HEADER RESPONSIVO (Celular) */}
         <header className="bg-white border-b border-gray-200 p-4 flex md:hidden justify-between items-center z-50">
           <div className="flex items-center gap-2">
-            {/* Botón de Hamburguesa */}
             <button 
               onClick={() => setIsMenuOpen(!isMenuOpen)} 
               className="text-slate-800 p-2 focus:outline-none"
@@ -97,12 +145,24 @@ export default function SistemaLayout({
             </div>
           </div>
           
-          <Link href="/login" className="text-red-500 p-2">
-            <FaSignOutAlt size={20} />
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* 📱 Botón de instalar directamente en la barra del Celular */}
+            {showInstallBtn && (
+              <button 
+                onClick={handleInstallClick}
+                className="bg-green-600 text-white flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold shadow animate-pulse"
+              >
+                <FaDownload size={12} />
+                Instalar
+              </button>
+            )}
+            <Link href="/login" className="text-red-500 p-2">
+              <FaSignOutAlt size={20} />
+            </Link>
+          </div>
         </header>
 
-        {/* MENÚ DESPLEGABLE MÓVIL (Aparece al tocar la hamburguesa) */}
+        {/* MENÚ DESPLEGABLE MÓVIL */}
         {isMenuOpen && (
           <div className="md:hidden bg-slate-900 text-white absolute top-16 left-0 w-full shadow-xl border-t border-slate-800 z-40 transition-all duration-200">
             <nav className="p-4 space-y-1">
@@ -113,7 +173,7 @@ export default function SistemaLayout({
                   <Link 
                     key={item.href} 
                     href={item.href}
-                    onClick={() => setIsMenuOpen(false)} // Cierra el menú al navegar
+                    onClick={() => setIsMenuOpen(false)}
                     className={`flex items-center gap-4 px-4 py-3 rounded-xl font-medium transition-all
                       ${isActive 
                         ? "bg-blue-600 text-white" 
@@ -129,7 +189,7 @@ export default function SistemaLayout({
           </div>
         )}
 
-        {/* Contenido dinámico de cada página */}
+        {/* Contenido dinámico */}
         <main className="flex-1 overflow-y-auto bg-gray-50 w-full">
           {children}
         </main>
