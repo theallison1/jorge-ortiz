@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from 'next/navigation';
 import { 
   FaChartLine, 
   FaCar, 
@@ -12,7 +13,7 @@ import {
   FaSignOutAlt,
   FaBars,
   FaTimes,
-  FaDownload // Icono para el botón de instalar
+  FaDownload
 } from "react-icons/fa";
 
 export default function SistemaLayout({
@@ -21,13 +22,14 @@ export default function SistemaLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   // 📱 Estados para la instalación de la PWA
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
- useEffect(() => {
+  useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -40,6 +42,17 @@ export default function SistemaLayout({
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     };
   }, []);
+
+  const handleLogout = () => {
+    // 1. Borramos la cookie del token poniéndole fecha de expiración en el pasado
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+    
+    // 2. Redirigimos al Login de inmediato
+    router.push('/login');
+    
+    // 3. Forzamos un refresco rápido para limpiar cualquier estado en memoria
+    router.refresh();
+  };
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -113,13 +126,13 @@ export default function SistemaLayout({
             </button>
           )}
 
-          <Link 
-            href="/login"
-            className="flex items-center gap-4 px-4 py-3 rounded-xl font-medium text-red-400 hover:bg-red-950/30 transition-all"
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-4 px-4 py-3 rounded-xl font-medium text-red-400 hover:bg-red-950/30 transition-all text-left"
           >
             <FaSignOutAlt size={20} />
             Cerrar Sesión
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -153,9 +166,13 @@ export default function SistemaLayout({
                 Instalar
               </button>
             )}
-            <Link href="/login" className="text-red-500 p-2">
+            <button 
+              onClick={handleLogout} 
+              className="text-red-500 p-2 focus:outline-none"
+              aria-label="Cerrar sesión"
+            >
               <FaSignOutAlt size={20} />
-            </Link>
+            </button>
           </div>
         </header>
 
