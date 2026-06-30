@@ -83,13 +83,16 @@ const handleLogout = () => {
       {/* SIDEBAR PARA COMPUTADORA */}
       <aside className="w-64 bg-slate-900 text-white flex flex-col justify-between hidden md:flex">
         <div>
-          {/* Logo / Nombre Concesionaria */}
-          <div className="p-6 border-b border-slate-800 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <FaCar className="text-blue-500 text-2xl" />
-              <span className="font-bold text-xl tracking-wider">ORTIZ_AUTO</span>
-            </div>
-          </div>
+          {/* Logo / Nombre Concesionaria Oficial */}
+<div className="p-6 border-b border-slate-800 flex items-center justify-center">
+  <Link href="/vehicles" className="flex items-center justify-center transition active:scale-95">
+    <img 
+      src="/icono-jorge.png" 
+      alt="Jorge Ortiz Automotores Logo" 
+      className="h-10 w-auto object-contain"
+    />
+  </Link>
+</div>
 
           {/* Opciones del Menú */}
           <nav className="p-4 space-y-2">
