@@ -1,106 +1,24 @@
-const pool = require('../config/db');
+const express = require('express');
+const router = express.Router();
 
-// 1. OBTENER TODOS LOS VEHÍCULOS
-const getVehicles = async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM vehicles ORDER BY id DESC');
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Error al obtener los vehículos" });
-  }
-};
+// 🚨 IMPORTANTE: Aseguramos la ruta correcta hacia el controlador
+const vehicleController = require('../controllers/vehicleController');
 
-// 2. OBTENER UN SOLO VEHÍCULO POR ID
-const getVehicleById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query('SELECT * FROM vehicles WHERE id = $1', [id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Vehículo no encontrado" });
-    }
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Error al obtener el vehículo" });
-  }
-};
+// 1. Obtener todos los vehículos
+router.get('/', vehicleController.getVehicles);
 
-// 3. CREAR UN NUEVO VEHÍCULO (Corregido con soporte de imágenes)
-const createVehicle = async (req, res) => {
-  try {
-    const { 
-      marca, modelo, version, anio, combustible, transmision, 
-      kilometros, precio, color, patente, descripcion, imagenes 
-    } = req.body;
-    
-    // Si desde el frontend no mandan fotos, aseguramos un array de texto vacío por defecto {}
-    const fotosArray = imagenes && Array.isArray(imagenes) ? imagenes : [];
+// 2. Obtener un vehículo por ID
+router.get('/:id', vehicleController.getVehicleById);
 
-    const queryText = `
-      INSERT INTO vehicles (marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion, imagenes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING *;
-    `;
-    const values = [marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion, fotosArray];
-    
-    const result = await pool.query(queryText, values);
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Error al crear el vehículo (Verificá si la patente ya existe)" });
-  }
-};
+// 3. Crear un nuevo vehículo
+router.post('/', vehicleController.createVehicle);
 
-// 4. ACTUALIZAR UN VEHÍCULO (Corregido con soporte de imágenes)
-const updateVehicle = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { 
-      marca, modelo, version, anio, combustible, transmision, 
-      kilometros, precio, color, patente, descripcion, estado, imagenes 
-    } = req.body;
+// 4. Actualizar un vehículo completo
+router.put('/:id', vehicleController.updateVehicle);
 
-    // Si pasan imágenes actualizadas las usamos, sino mantenemos lo que venga o vacío
-    const fotosArray = imagenes && Array.isArray(imagenes) ? imagenes : [];
+// 5. Eliminar un vehículo
+router.delete('/:id', vehicleController.deleteVehicle);
 
-    const queryText = `
-      UPDATE vehicles 
-      SET marca = $1, modelo = $2, version = $3, anio = $4, combustible = $5, transmision = $6, kilometros = $7, precio = $8, color = $9, patente = $10, descripcion = $11, estado = $12, imagenes = $13
-      WHERE id = $14 RETURNING *;
-    `;
-    const values = [marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion, estado, fotosArray, id];
-
-    const result = await pool.query(queryText, values);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Vehículo no encontrado para actualizar" });
-    }
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Error al actualizar el vehículo" });
-  }
-};
-
-// 5. ELIMINAR UN VEHÍCULO
-const deleteVehicle = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query('DELETE FROM vehicles WHERE id = $1 RETURNING *', [id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Vehículo no encontrado" });
-    }
-    res.json({ message: "Vehículo eliminado correctamente" });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Error al eliminar el vehículo" });
-  }
-};
-
-module.exports = {
-  getVehicles,
-  getVehicleById,
-  createVehicle,
-  updateVehicle,
-  deleteVehicle
-};
+// 🚨 ESTO ES LO QUE SANA EL ERROR EN INDEX.JS:
+// Exportamos obligatoriamente el objeto 'router' de Express, NO el controlador.
+module.exports = router;

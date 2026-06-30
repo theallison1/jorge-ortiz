@@ -29,14 +29,19 @@ const getVehicleById = async (req, res) => {
 // 3. CREAR UN NUEVO VEHÍCULO
 const createVehicle = async (req, res) => {
   try {
-    const { marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion } = req.body;
+    const { 
+      marca, modelo, version, anio, combustible, transmision, 
+      kilometros, precio, color, patente, descripcion, imagenes 
+    } = req.body;
     
+    const fotosArray = imagenes && Array.isArray(imagenes) ? imagenes : [];
+
     const queryText = `
-      INSERT INTO vehicles (marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      INSERT INTO vehicles (marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion, imagenes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *;
     `;
-    const values = [marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion];
+    const values = [marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion, fotosArray];
     
     const result = await pool.query(queryText, values);
     res.status(201).json(result.rows[0]);
@@ -50,14 +55,19 @@ const createVehicle = async (req, res) => {
 const updateVehicle = async (req, res) => {
   try {
     const { id } = req.params;
-    const { marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion, estado } = req.body;
+    const { 
+      marca, modelo, version, anio, combustible, transmision, 
+      kilometros, precio, color, patente, descripcion, estado, imagenes 
+    } = req.body;
+
+    const fotosArray = imagenes && Array.isArray(imagenes) ? imagenes : [];
 
     const queryText = `
       UPDATE vehicles 
-      SET marca = $1, modelo = $2, version = $3, anio = $4, combustible = $5, transmision = $6, kilometros = $7, precio = $8, color = $9, patente = $10, descripcion = $11, estado = $12
-      WHERE id = $13 RETURNING *;
+      SET marca = $1, modelo = $2, version = $3, anio = $4, combustible = $5, transmision = $6, kilometros = $7, precio = $8, color = $9, patente = $10, descripcion = $11, estado = $12, imagenes = $13
+      WHERE id = $14 RETURNING *;
     `;
-    const values = [marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion, estado, id];
+    const values = [marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion, estado, fotosArray, id];
 
     const result = await pool.query(queryText, values);
     if (result.rows.length === 0) {
@@ -85,6 +95,7 @@ const deleteVehicle = async (req, res) => {
   }
 };
 
+// Exportación limpia como un objeto con todos los métodos
 module.exports = {
   getVehicles,
   getVehicleById,
