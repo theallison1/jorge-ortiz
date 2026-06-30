@@ -27,17 +27,25 @@ export default function SistemaLayout({
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
-  useEffect(() => {
+ useEffect(() => {
+    // 1. Capturar el botón de instalación
     const handleBeforeInstallPrompt = (e: Event) => {
-      // Previene que Chrome muestre su propio cartel molesto
       e.preventDefault();
-      // Guarda el evento para usarlo cuando presionen nuestro botón
       setDeferredPrompt(e);
-      // Muestra nuestro botón personalizado
       setShowInstallBtn(true);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    // 2. REGISTRAR EL SERVICE WORKER PARA CELULARES
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then((reg) => console.log("Service Worker registrado con éxito!", reg.scope))
+          .catch((err) => console.error("Error al registrar el Service Worker:", err));
+      });
+    }
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
