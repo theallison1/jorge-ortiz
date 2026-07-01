@@ -1,121 +1,312 @@
-// Al principio de tu controllers/vehicleController.js (arriba de todo), agregá esto:
-const cheerio = require('cheerio');
-const pool = require('../config/db');
+const axios = require("axios");
+const pool = require("../config/db");
 
+// ==========================================
+// MERCADOLIBRE
+// ==========================================
 
 const getMercadoVehicles = async (req, res) => {
-  const { q } = req.query;
-  return res.json({
-    results: [
+  try {
+    const { q } = req.query;
+
+    if (!q || q.trim() === "") {
+      return res.status(400).json({
+        error: "Debe indicar un término de búsqueda."
+      });
+    }
+
+    const { data } = await axios.get(
+      "https://api.mercadolibre.com/sites/MLA/search",
       {
-        id: 'fb-direct',
-        title: `Ver listado completo de: ${q}`,
-        price: 0,
-        address: { state_name: "MercadoLibre 🚗" },
-        thumbnail: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=400&q=80',
-        permalink: `https://autos.mercadolibre.com.ar/${encodeURIComponent(q).replace(/%20/g, '-')}`
+        params: {
+          q,
+          limit: 6
+        }
       }
-    ]
-  });
+    );
+
+    return res.json(data);
+
+  } catch (err) {
+
+    console.error("Error MercadoLibre:");
+    console.error(err.response?.data || err.message);
+
+    return res.status(500).json({
+      error: "No fue posible consultar MercadoLibre."
+    });
+  }
 };
 
+// ==========================================
+// OBTENER TODOS LOS VEHÍCULOS
+// ==========================================
 
-// 1. OBTENER TODOS LOS VEHÍCULOS
 const getVehicles = async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM vehicles ORDER BY id DESC');
+
+    const result = await pool.query(
+      "SELECT * FROM vehicles ORDER BY id DESC"
+    );
+
     res.json(result.rows);
+
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Error al obtener los vehículos" });
+
+    console.error(err);
+
+    res.status(500).json({
+      error: "Error al obtener los vehículos."
+    });
+
   }
 };
 
-// 2. OBTENER UN SOLO VEHÍCULO POR ID
+// ==========================================
+// OBTENER VEHÍCULO POR ID
+// ==========================================
+
 const getVehicleById = async (req, res) => {
+
   try {
+
     const { id } = req.params;
-    const result = await pool.query('SELECT * FROM vehicles WHERE id = $1', [id]);
+
+    const result = await pool.query(
+      "SELECT * FROM vehicles WHERE id = $1",
+      [id]
+    );
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Vehículo no encontrado" });
+
+      return res.status(404).json({
+        message: "Vehículo no encontrado."
+      });
+
     }
+
     res.json(result.rows[0]);
+
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Error al obtener el vehículo" });
+
+    console.error(err);
+
+    res.status(500).json({
+      error: "Error al obtener el vehículo."
+    });
+
   }
+
 };
 
-// 3. CREAR UN NUEVO VEHÍCULO
+// ==========================================
+// CREAR VEHÍCULO
+// ==========================================
+
 const createVehicle = async (req, res) => {
-  try {
-    const { 
-      marca, modelo, version, anio, combustible, transmision, 
-      kilometros, precio, color, patente, descripcion, imagenes 
-    } = req.body;
-    
-    const fotosArray = imagenes && Array.isArray(imagenes) ? imagenes : [];
 
-    const queryText = `
-      INSERT INTO vehicles (marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion, imagenes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING *;
-    `;
-    const values = [marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion, fotosArray];
-    
-    const result = await pool.query(queryText, values);
+  try {
+
+    const {
+      marca,
+      modelo,
+      version,
+      anio,
+      combustible,
+      transmision,
+      kilometros,
+      precio,
+      color,
+      patente,
+      descripcion,
+      imagenes
+    } = req.body;
+
+    const fotosArray =
+      Array.isArray(imagenes)
+        ? imagenes
+        : [];
+
+    const result = await pool.query(
+      `INSERT INTO vehicles
+      (
+        marca,
+        modelo,
+        version,
+        anio,
+        combustible,
+        transmision,
+        kilometros,
+        precio,
+        color,
+        patente,
+        descripcion,
+        imagenes
+      )
+      VALUES
+      (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12
+      )
+      RETURNING *`,
+      [
+        marca,
+        modelo,
+        version,
+        anio,
+        combustible,
+        transmision,
+        kilometros,
+        precio,
+        color,
+        patente,
+        descripcion,
+        fotosArray
+      ]
+    );
+
     res.status(201).json(result.rows[0]);
+
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Error al crear el vehículo (Verificá si la patente ya existe)" });
+
+    console.error(err);
+
+    res.status(500).json({
+      error:
+        "Error al crear el vehículo. Verificá que la patente no exista."
+    });
+
   }
+
 };
 
-// 4. ACTUALIZAR UN VEHÍCULO
+// ==========================================
+// ACTUALIZAR VEHÍCULO
+// ==========================================
+
 const updateVehicle = async (req, res) => {
+
   try {
+
     const { id } = req.params;
-    const { 
-      marca, modelo, version, anio, combustible, transmision, 
-      kilometros, precio, color, patente, descripcion, estado, imagenes 
+
+    const {
+      marca,
+      modelo,
+      version,
+      anio,
+      combustible,
+      transmision,
+      kilometros,
+      precio,
+      color,
+      patente,
+      descripcion,
+      estado,
+      imagenes
     } = req.body;
 
-    const fotosArray = imagenes && Array.isArray(imagenes) ? imagenes : [];
+    const fotosArray =
+      Array.isArray(imagenes)
+        ? imagenes
+        : [];
 
-    const queryText = `
-      UPDATE vehicles 
-      SET marca = $1, modelo = $2, version = $3, anio = $4, combustible = $5, transmision = $6, kilometros = $7, precio = $8, color = $9, patente = $10, descripcion = $11, estado = $12, imagenes = $13
-      WHERE id = $14 RETURNING *;
-    `;
-    const values = [marca, modelo, version, anio, combustible, transmision, kilometros, precio, color, patente, descripcion, estado, fotosArray, id];
+    const result = await pool.query(
+      `UPDATE vehicles
+      SET
+      marca=$1,
+      modelo=$2,
+      version=$3,
+      anio=$4,
+      combustible=$5,
+      transmision=$6,
+      kilometros=$7,
+      precio=$8,
+      color=$9,
+      patente=$10,
+      descripcion=$11,
+      estado=$12,
+      imagenes=$13
+      WHERE id=$14
+      RETURNING *`,
+      [
+        marca,
+        modelo,
+        version,
+        anio,
+        combustible,
+        transmision,
+        kilometros,
+        precio,
+        color,
+        patente,
+        descripcion,
+        estado,
+        fotosArray,
+        id
+      ]
+    );
 
-    const result = await pool.query(queryText, values);
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Vehículo no encontrado para actualizar" });
+
+      return res.status(404).json({
+        message: "Vehículo no encontrado."
+      });
+
     }
+
     res.json(result.rows[0]);
+
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Error al actualizar el vehículo" });
+
+    console.error(err);
+
+    res.status(500).json({
+      error: "Error al actualizar el vehículo."
+    });
+
   }
+
 };
 
-// 5. ELIMINAR UN VEHÍCULO
+// ==========================================
+// ELIMINAR VEHÍCULO
+// ==========================================
+
 const deleteVehicle = async (req, res) => {
+
   try {
+
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM vehicles WHERE id = $1 RETURNING *', [id]);
+
+    const result = await pool.query(
+      "DELETE FROM vehicles WHERE id=$1 RETURNING *",
+      [id]
+    );
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Vehículo no encontrado" });
+
+      return res.status(404).json({
+        message: "Vehículo no encontrado."
+      });
+
     }
-    res.json({ message: "Vehículo eliminado correctamente" });
+
+    res.json({
+      message: "Vehículo eliminado correctamente."
+    });
+
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Error al eliminar el vehículo" });
+
+    console.error(err);
+
+    res.status(500).json({
+      error: "Error al eliminar el vehículo."
+    });
+
   }
+
 };
 
-// 📦 EXPORTACIÓN COMPLETA
 module.exports = {
   getMercadoVehicles,
   getVehicles,
