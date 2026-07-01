@@ -52,7 +52,29 @@ export default function DashboardPage() {
   const disponibles = vehicles.filter(car => car.estado === 'Disponible').length;
   const vendidos = vehicles.filter(car => car.estado === 'Vendido').length;
 
-  // 🔎 ESCANEO CON PUENTE PROXY (Evita bloqueos de IP y restricciones de CORS del navegador)
+  // Función interna para procesar y limpiar los datos que vienen de MercadoLibre
+  const procesarResultadosML = (results: any[]) => {
+    const mapeado: MarketVehicle[] = results.map((item: any) => {
+      let fotoUrl = item.thumbnail || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=400&q=80';
+      fotoUrl = fotoUrl.replace('-I.jpg', '-O.jpg').replace('-V.jpg', '-O.jpg');
+
+      return {
+        id: item.id || `ml-${Math.random()}`,
+        titulo: item.title,
+        precio: new Intl.NumberFormat('es-AR', {
+          style: 'currency',
+          currency: 'ARS',
+          maximumFractionDigits: 0
+        }).format(item.price || 0),
+        origen: item.address?.state_name || 'Argentina',
+        imagen: fotoUrl,
+        enlace: item.permalink
+      };
+    });
+    setResultadosOnline(mapeado);
+  };
+
+  // 🔎 ESCANEO CON DOBLE PROXY EN CASCADA (Indestructible contra saturaciones y CORS)
   const buscarVehiculosMercado = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!busqueda.trim()) return;
@@ -61,47 +83,48 @@ export default function DashboardPage() {
     setErrorBusqueda(null);
     setResultadosOnline([]);
 
+    const urlOriginal = `https://api.mercadolibre.com/sites/MLA/search?category=MLA1743&q=${encodeURIComponent(busqueda)}&limit=6`;
+    
+    // 1️⃣ INTENTO: Proxy AllOrigins optimizado con destructor de caché
     try {
-      // URL original hacia la API oficial filtrando por la categoría de Autos (MLA1743)
-      const urlOriginal = `https://api.mercadolibre.com/sites/MLA/search?category=MLA1743&q=${encodeURIComponent(busqueda)}&limit=6`;
+      const urlConProxy1 = `https://api.allorigins.win/get?disableCache=true&url=${encodeURIComponent(urlOriginal)}&_ts=${Date.now()}`;
       
-      // Pasamos la URL por el proxy seguro para engañar al navegador y a MercadoLibre
-      const urlConProxy = `https://api.allorigins.win/get?url=${encodeURIComponent(urlOriginal)}`;
-      
-      const respuesta = await fetch(urlConProxy);
-      if (!respuesta.ok) throw new Error();
+      const respuesta = await fetch(urlConProxy1);
+      if (!respuesta.ok) throw new Error("Proxy 1 falló");
       
       const resJson = await respuesta.json();
-      // AllOrigins devuelve la respuesta original serializada en texto dentro de 'contents'
       const data = JSON.parse(resJson.contents);
 
       if (data.results && data.results.length > 0) {
-        const mapeado: MarketVehicle[] = data.results.map((item: any) => {
-          // Escalamos la resolución del thumbnail a la original de máxima calidad
-          let fotoUrl = item.thumbnail || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=400&q=80';
-          fotoUrl = fotoUrl.replace('-I.jpg', '-O.jpg').replace('-V.jpg', '-O.jpg');
+        procesarResultadosML(data.results);
+        setBuscandoOnline(false);
+        return; // Éxito total, salimos de la función
+      } else {
+        setErrorBusqueda('No se encontraron vehículos similares publicados en este momento.');
+        setBuscandoOnline(false);
+        return;
+      }
+    } catch (error) {
+      console.warn("Proxy 1 saturado, activando Proxy de respaldo instantáneo...");
+    }
 
-          return {
-            id: item.id || `ml-${Math.random()}`,
-            titulo: item.title,
-            precio: new Intl.NumberFormat('es-AR', {
-              style: 'currency',
-              currency: 'ARS',
-              maximumFractionDigits: 0
-            }).format(item.price || 0),
-            origen: item.address?.state_name || 'Argentina',
-            imagen: fotoUrl,
-            enlace: item.permalink
-          };
-        });
-        
-        setResultadosOnline(mapeado);
+    // 2️⃣ INTENTO: Proxy de respaldo rápido (corsproxy.io) por si el primero falla
+    try {
+      const urlConProxy2 = `https://corsproxy.io/?${encodeURIComponent(urlOriginal)}`;
+      
+      const respuesta = await fetch(urlConProxy2);
+      if (!respuesta.ok) throw new Error("Proxy 2 falló");
+      
+      const data = await respuesta.json();
+
+      if (data.results && data.results.length > 0) {
+        procesarResultadosML(data.results);
       } else {
         setErrorBusqueda('No se encontraron vehículos similares publicados en este momento.');
       }
     } catch (error) {
-      console.error("Error al buscar en el mercado con Proxy:", error);
-      setErrorBusqueda('No se pudo establecer la conexión directa con MercadoLibre. Reintentá en unos segundos.');
+      console.error("Ambos proxies fallaron:", error);
+      setErrorBusqueda('Los servidores intermedios están saturados. Por favor, reintentá presionar el botón en 3 segundos.');
     } finally {
       setBuscandoOnline(false);
     }
@@ -172,7 +195,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* CONTENEDOR DE TARJETAS DE AUTOS REALES (MÁXIMO 6) */}
+        {/* CONTENEDOR DE TARJETAS DE AUTOS REALES */}
         {!buscandoOnline && resultadosOnline.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {resultadosOnline.map((item) => (
