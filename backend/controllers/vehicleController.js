@@ -10,6 +10,35 @@ const getVehicles = async (req, res) => {
     res.status(500).json({ error: "Error al obtener los vehículos" });
   }
 };
+// Agrega esto en tu archivo de servidor backend (ej: server.js o index.js)
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args)); // Si usas Node viejo, si usas v18+ no hace falta
+
+app.get('/api/mercado', async (req, res) => {
+  const { q } = req.query;
+  if (!q) {
+    return res.json({ results: [] });
+  }
+
+  try {
+    // Tu servidor de Render consulta de forma limpia y directa
+    const response = await fetch(
+      `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(q)}&category=MLA1743&limit=6`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        }
+      }
+    );
+
+    if (!response.ok) throw new Error('Error en MercadoLibre');
+    const data = await response.json();
+    
+    res.json(data);
+  } catch (error) {
+    console.error('Error al escanear mercado:', error);
+    res.status(500).json({ error: 'Error al consultar el mercado online' });
+  }
+});
 
 // 2. OBTENER UN SOLO VEHÍCULO POR ID
 const getVehicleById = async (req, res) => {
