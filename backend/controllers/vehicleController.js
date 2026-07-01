@@ -1,26 +1,16 @@
 const pool = require('../config/db');
 
-// 1. OBTENER TODOS LOS VEHÍCULOS
-const getVehicles = async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM vehicles ORDER BY id DESC');
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Error al obtener los vehículos" });
-  }
-};
-// Agrega esto en tu archivo de servidor backend (ej: server.js o index.js)
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args)); // Si usas Node viejo, si usas v18+ no hace falta
-
-app.get('/api/mercado', async (req, res) => {
+// OBTENER AUTOS DE MERCADOLIBRE (Agregado aquí de forma limpia)
+const getMercadoVehicles = async (req, res) => {
   const { q } = req.query;
   if (!q) {
     return res.json({ results: [] });
   }
 
   try {
-    // Tu servidor de Render consulta de forma limpia y directa
+    // Si usas Node 18 o superior, podés borrar la línea del "const fetch = ..." de abajo
+    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+    
     const response = await fetch(
       `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(q)}&category=MLA1743&limit=6`,
       {
@@ -38,7 +28,18 @@ app.get('/api/mercado', async (req, res) => {
     console.error('Error al escanear mercado:', error);
     res.status(500).json({ error: 'Error al consultar el mercado online' });
   }
-});
+};
+
+// 1. OBTENER TODOS LOS VEHÍCULOS
+const getVehicles = async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM vehicles ORDER BY id DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: "Error al obtener los vehículos" });
+  }
+};
 
 // 2. OBTENER UN SOLO VEHÍCULO POR ID
 const getVehicleById = async (req, res) => {
@@ -124,8 +125,9 @@ const deleteVehicle = async (req, res) => {
   }
 };
 
-// Exportación limpia como un objeto con todos los métodos
+// Exportación limpia (Agregamos getMercadoVehicles al listado)
 module.exports = {
+  getMercadoVehicles,
   getVehicles,
   getVehicleById,
   createVehicle,
