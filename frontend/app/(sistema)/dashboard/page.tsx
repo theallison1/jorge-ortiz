@@ -52,25 +52,32 @@ export default function DashboardPage() {
   const disponibles = vehicles.filter(car => car.estado === 'Disponible').length;
   const vendidos = vehicles.filter(car => car.estado === 'Vendido').length;
 
-  // 🔎 ESCANEO DIRECTO AL CLIENTE (Bye bye bloqueos de Render o errores 403)
+  // 🔎 ESCANEO CON PUENTE PROXY (Evita bloqueos de IP y restricciones de CORS del navegador)
   const buscarVehiculosMercado = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!busqueda.trim()) return;
 
     setBuscandoOnline(true);
     setErrorBusqueda(null);
+    setResultadosOnline([]);
 
     try {
-      // Forzamos la consulta directa a la API por categoría Autos (MLA1743)
-      const urlApi = `https://api.mercadolibre.com/sites/MLA/search?category=MLA1743&q=${encodeURIComponent(busqueda)}&limit=6`;
+      // URL original hacia la API oficial filtrando por la categoría de Autos (MLA1743)
+      const urlOriginal = `https://api.mercadolibre.com/sites/MLA/search?category=MLA1743&q=${encodeURIComponent(busqueda)}&limit=6`;
       
-      const respuesta = await fetch(urlApi);
+      // Pasamos la URL por el proxy seguro para engañar al navegador y a MercadoLibre
+      const urlConProxy = `https://api.allorigins.win/get?url=${encodeURIComponent(urlOriginal)}`;
+      
+      const respuesta = await fetch(urlConProxy);
       if (!respuesta.ok) throw new Error();
-      const data = await respuesta.json();
+      
+      const resJson = await respuesta.json();
+      // AllOrigins devuelve la respuesta original serializada en texto dentro de 'contents'
+      const data = JSON.parse(resJson.contents);
 
       if (data.results && data.results.length > 0) {
         const mapeado: MarketVehicle[] = data.results.map((item: any) => {
-          // Escalamos la foto a máxima resolución
+          // Escalamos la resolución del thumbnail a la original de máxima calidad
           let fotoUrl = item.thumbnail || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=400&q=80';
           fotoUrl = fotoUrl.replace('-I.jpg', '-O.jpg').replace('-V.jpg', '-O.jpg');
 
@@ -90,31 +97,11 @@ export default function DashboardPage() {
         
         setResultadosOnline(mapeado);
       } else {
-        // Fallback dinámico si la API no devuelve coincidencias directas
-        setResultadosOnline([
-          {
-            id: 'fallback-direct',
-            titulo: `Ver publicaciones en la web de: ${busqueda}`,
-            precio: '$ 0',
-            origen: 'MercadoLibre 🚗',
-            imagen: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=400&q=80',
-            enlace: `https://autos.mercadolibre.com.ar/${encodeURIComponent(busqueda)}`
-          }
-        ]);
+        setErrorBusqueda('No se encontraron vehículos similares publicados en este momento.');
       }
     } catch (error) {
-      console.error("Error al buscar en el mercado:", error);
-      // Fallback seguro por si se cae la red o el fetch falla por completo
-      setResultadosOnline([
-        {
-          id: 'fallback-error',
-          titulo: `Buscar de forma directa en la web: ${busqueda}`,
-          precio: '$ 0',
-          origen: 'Enlace Auxiliar',
-          imagen: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=400&q=80',
-          enlace: `https://autos.mercadolibre.com.ar/${encodeURIComponent(busqueda)}`
-        }
-      ]);
+      console.error("Error al buscar en el mercado con Proxy:", error);
+      setErrorBusqueda('No se pudo establecer la conexión directa con MercadoLibre. Reintentá en unos segundos.');
     } finally {
       setBuscandoOnline(false);
     }
@@ -153,7 +140,7 @@ export default function DashboardPage() {
           <h3 className="text-base font-bold text-gray-900">Buscar Vehículos Similares en el Mercado</h3>
         </div>
         <p className="text-xs text-gray-500 mb-4">
-          Fotos y cotizaciones directas de la red. Al presionar la imagen se abrirá el sitio original de la publicación.
+          Fotos y cotizaciones directas en tiempo real. Al presionar la imagen se abrirá el sitio original de la publicación.
         </p>
 
         <form onSubmit={buscarVehiculosMercado} className="flex gap-2 max-w-xl mb-6">
@@ -175,7 +162,7 @@ export default function DashboardPage() {
         {/* ESTADOS */}
         {buscandoOnline && (
           <div className="text-center py-12 text-sm font-semibold text-gray-600 animate-pulse">
-            Buscando imágenes y tasaciones en tiempo real... 🔍
+            Sincronizando con MercadoLibre de forma segura... 🔍
           </div>
         )}
 
@@ -185,7 +172,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* CONTENEDOR DE TARJETAS DE AUTOS REALES */}
+        {/* CONTENEDOR DE TARJETAS DE AUTOS REALES (MÁXIMO 6) */}
         {!buscandoOnline && resultadosOnline.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {resultadosOnline.map((item) => (
@@ -214,9 +201,7 @@ export default function DashboardPage() {
                     </span>
                     <h4 className="font-semibold text-xs md:text-sm text-gray-900 mt-1.5 line-clamp-2 min-h-[32px]">{item.titulo}</h4>
                   </div>
-                  <p className="text-base font-black text-gray-950 mt-1">
-                    {item.precio !== '$ 0' ? item.precio : 'Ver Valor en Link'}
-                  </p>
+                  <p className="text-base font-black text-gray-950 mt-1">{item.precio}</p>
                 </div>
 
               </div>
