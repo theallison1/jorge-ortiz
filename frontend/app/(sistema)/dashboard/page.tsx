@@ -29,12 +29,13 @@ export default function DashboardPage() {
   const [buscandoOnline, setBuscandoOnline] = useState(false);
   const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null);
 
-  const URL_BACKEND = 'https://jorge-ortiz.onrender.com/api/vehicles';
+  const URL_BACKEND_VEHICLES = 'https://jorge-ortiz.onrender.com/api/vehicles';
+  const URL_BACKEND_MERCADO = 'https://jorge-ortiz.onrender.com/api/mercado';
 
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
-        const res = await fetch(URL_BACKEND);
+        const res = await fetch(URL_BACKEND_VEHICLES);
         if (!res.ok) throw new Error("Error al traer datos");
         const data = await res.json();
         setVehicles(data);
@@ -52,7 +53,7 @@ export default function DashboardPage() {
   const disponibles = vehicles.filter(car => car.estado === 'Disponible').length;
   const vendidos = vehicles.filter(car => car.estado === 'Vendido').length;
 
-  // 🔎 CONSULTA REAL CON PROXY EVITA-BLOQUEOS (CORS-ANYWHERE / ALLORIGINS)
+  // 🔎 ESCANEO REAL PASANDO POR TU BACKEND DE RENDER
   const buscarVehiculosMercado = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!busqueda.trim()) return;
@@ -61,17 +62,11 @@ export default function DashboardPage() {
     setErrorBusqueda(null);
 
     try {
-      // Usamos la API pública de MercadoLibre. Al ser una ruta de consulta global estructurada, no suele pedir tokens si la URL está bien formateada
-      const urlBase = `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(busqueda)}&category=MLA1743&limit=6`;
-      
-      // Para evitar el error 403 del navegador, usamos un proxy público de respaldo que formatea las cabeceras como si fueras un usuario normal
-      const respuesta = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(urlBase)}`);
+      // Llamamos a tu servidor de Render, que tiene permitido hacer consultas sin CORS
+      const respuesta = await fetch(`${URL_BACKEND_MERCADO}?q=${encodeURIComponent(busqueda)}`);
       
       if (!respuesta.ok) throw new Error();
-      const rawData = await respuesta.json();
-      
-      // AllOrigins devuelve el JSON original dentro de un string en .contents
-      const data = JSON.parse(rawData.contents);
+      const data = await respuesta.json();
 
       if (data.results && data.results.length > 0) {
         const mapeado: MarketVehicle[] = data.results.map((item: any) => ({
@@ -83,19 +78,18 @@ export default function DashboardPage() {
             maximumFractionDigits: 0
           }).format(item.price),
           origen: item.address?.state_name || 'MercadoLibre',
-          // Reemplaza la inicial de resolución baja por la imagen de tamaño completo original (-O)
           imagen: item.thumbnail.replace('-I.jpg', '-O.jpg').replace('-V.jpg', '-O.jpg'),
           enlace: item.permalink
         }));
         
         setResultadosOnline(mapeado);
       } else {
-        setErrorBusqueda('No se encontraron vehículos similares publicados.');
+        setErrorBusqueda('No se encontraron vehículos similares publicados en este momento.');
         setResultadosOnline([]);
       }
     } catch (error) {
       console.error("Error al buscar en el mercado:", error);
-      setErrorBusqueda('El mercado bloqueó la consulta temporalmente. Reintentá el escaneo.');
+      setErrorBusqueda('No se pudo conectar con el sistema de tasación del servidor.');
     } finally {
       setBuscandoOnline(false);
     }
@@ -127,14 +121,14 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 🔍 COMPARADOR EN VIVO */}
+      {/* 🔍 COMPARADOR EN VIVO REAL */}
       <div className="bg-white p-5 rounded-xl shadow border border-gray-200">
         <div className="flex items-center gap-2 mb-2">
           <FaCar className="text-blue-600" size={18} />
           <h3 className="text-base font-bold text-gray-900">Buscar Vehículos Similares en el Mercado</h3>
         </div>
         <p className="text-xs text-gray-500 mb-4">
-          Fotos y cotizaciones directas de la red. Al presionar la imagen se abrirá el sitio original de la publicación.
+          Fotos y cotizaciones directas de la red a través del servidor. Al presionar la imagen se abrirá el sitio original de la publicación.
         </p>
 
         <form onSubmit={buscarVehiculosMercado} className="flex gap-2 max-w-xl mb-6">
@@ -142,7 +136,7 @@ export default function DashboardPage() {
             type="text"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Ej: Ford Fiesta 2013"
+            placeholder="Ej: Fiat Palio 2017"
             className="flex-1 p-2.5 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 text-sm transition shadow-inner"
           />
           <button 
@@ -156,7 +150,7 @@ export default function DashboardPage() {
         {/* ESTADOS */}
         {buscandoOnline && (
           <div className="text-center py-12 text-sm font-semibold text-gray-600 animate-pulse">
-            Buscando imágenes y tasaciones en tiempo real... 🔍
+            Buscando imágenes y tasaciones en tiempo real desde el servidor... 🔍
           </div>
         )}
 
@@ -172,14 +166,13 @@ export default function DashboardPage() {
             {resultadosOnline.map((item) => (
               <div key={item.id} className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white flex flex-col justify-between hover:shadow-md transition">
                 
-                {/* Imagen del auto real, si se clickea va al link */}
+                {/* Imagen del auto real */}
                 <a href={item.enlace} target="_blank" rel="noopener noreferrer" className="relative group block aspect-video w-full bg-gray-100 overflow-hidden">
                   <img 
                     src={item.imagen} 
                     alt={item.titulo} 
                     className="w-full h-full object-cover group-hover:scale-103 transition duration-200"
                     onError={(e) => {
-                      // Si la imagen HQ falla por formato, usa el fallback seguro
                       (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=400&q=80';
                     }}
                   />
@@ -207,7 +200,7 @@ export default function DashboardPage() {
         {/* ESTADO VACÍO */}
         {!buscandoOnline && resultadosOnline.length === 0 && !errorBusqueda && (
           <div className="border border-dashed border-gray-300 rounded-xl py-12 text-center text-xs text-gray-400 font-medium bg-gray-50">
-            Ingresá el modelo exacto arriba para renderizar las opciones vigentes de internet.
+            Ingresá el modelo exacto arriba para renderizar las opciones reales de la red.
           </div>
         )}
       </div>
