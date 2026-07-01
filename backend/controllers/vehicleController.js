@@ -1,6 +1,8 @@
 const pool = require('../config/db');
 
-// OBTENER AUTOS DE MERCADOLIBRE (Agregado aquí de forma limpia)
+// OBTENER AUTOS DE MERCADOL
+// controllers/vehicleController.js
+
 const getMercadoVehicles = async (req, res) => {
   const { q } = req.query;
   if (!q) {
@@ -8,25 +10,27 @@ const getMercadoVehicles = async (req, res) => {
   }
 
   try {
-    // Si usas Node 18 o superior, podés borrar la línea del "const fetch = ..." de abajo
-    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-    
+    // Usamos el fetch nativo de Node.js directamente (No requiere imports raros)
     const response = await fetch(
       `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(q)}&category=MLA1743&limit=6`,
       {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }
       }
     );
 
-    if (!response.ok) throw new Error('Error en MercadoLibre');
-    const data = await response.json();
+    if (!response.ok) {
+      console.error(`Error en la respuesta de MercadoLibre. Status: ${response.status}`);
+      throw new Error('Error en MercadoLibre');
+    }
     
-    res.json(data);
+    const data = await response.json();
+    return res.json(data);
+
   } catch (error) {
-    console.error('Error al escanear mercado:', error);
-    res.status(500).json({ error: 'Error al consultar el mercado online' });
+    console.error('Error detallado al escanear mercado:', error.message);
+    return res.status(500).json({ error: 'Error al consultar el mercado online' });
   }
 };
 
