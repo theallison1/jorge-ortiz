@@ -10,7 +10,6 @@ interface Vehicle {
   estado: string;
 }
 
-// Estructura para los autos que se encuentran online
 interface MarketVehicle {
   id: string;
   titulo: string;
@@ -24,10 +23,11 @@ export default function DashboardPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Estados para el buscador de mercado visual
+  // Estados para el buscador REAL de mercado
   const [busqueda, setBusqueda] = useState('');
   const [resultadosOnline, setResultadosOnline] = useState<MarketVehicle[]>([]);
   const [buscandoOnline, setBuscandoOnline] = useState(false);
+  const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null);
 
   const URL_BACKEND = 'https://jorge-ortiz.onrender.com/api/vehicles';
 
@@ -52,45 +52,50 @@ export default function DashboardPage() {
   const disponibles = vehicles.filter(car => car.estado === 'Disponible').length;
   const vendidos = vehicles.filter(car => car.estado === 'Vendido').length;
 
-  // 🔎 Simulador en tiempo real de vehículos parecidos del mercado (MercadoLibre / deRuedas)
-  const buscarVehiculosMercado = (e: React.FormEvent) => {
+  // 🔎 CONSULTA REAL EN VIVO A MERCADOLIBRE ARGENTINA
+  const buscarVehiculosMercado = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!busqueda.trim()) return;
 
     setBuscandoOnline(true);
+    setErrorBusqueda(null);
 
-    // Simulamos la respuesta estructurada que te traería el rastreador del mercado
-    // Esto evita los bloqueos de iframe y te dibuja las tarjetas reales con imágenes fijas
-    setTimeout(() => {
-      const mockResultados: MarketVehicle[] = [
-        {
-          id: '1',
-          titulo: `${busqueda} Usado Impecable`,
-          precio: '$24.500.000',
-          origen: 'deRuedas (Mendoza)',
-          imagen: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=400&q=80',
-          enlace: `https://www.deruedas.com.ar/bus.asp?txtBusca=${encodeURIComponent(busqueda)}`
-        },
-        {
-          id: '2',
-          titulo: `${busqueda} Financiado / Permuto`,
-          precio: '$26.000.000',
-          origen: 'MercadoLibre',
-          imagen: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=400&q=80',
-          enlace: `https://autos.mercadolibre.com.ar/${busqueda.trim().replace(/ /g, '-')}`
-        },
-        {
-          id: '3',
-          titulo: `${busqueda} Único Dueño Kilometraje Real`,
-          precio: '$23.800.000',
-          origen: 'Kavak Argentina',
-          imagen: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=400&q=80',
-          enlace: `https://www.kavak.com/ar/autos-usados?q=${encodeURIComponent(busqueda)}`
-        }
-      ];
-      setResultadosOnline(mockResultados);
+    try {
+      // Consultamos la API oficial y abierta de MercadoLibre Argentina (MLA) para traer datos reales
+      const respuesta = await fetch(
+        `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(busqueda)}&category=MLA1743&limit=6`
+      );
+      
+      if (!respuesta.ok) throw new Error();
+      const data = await respuesta.json();
+
+      if (data.results && data.results.length > 0) {
+        // Mapeamos los datos reales devueltos por el buscador
+        const mapeado: MarketVehicle[] = data.results.map((item: any) => ({
+          id: item.id,
+          titulo: item.title,
+          precio: new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: 'ARS',
+            maximumFractionDigits: 0
+          }).format(item.price),
+          origen: item.address?.state_name || 'MercadoLibre',
+          // Cambiamos el formato de la imagen de ML para que tenga mayor resolución fija (de 'I' a 'O')
+          imagen: item.thumbnail.replace('-I.jpg', '-O.jpg'),
+          enlace: item.permalink
+        }));
+        
+        setResultadosOnline(mapeado);
+      } else {
+        setErrorBusqueda('No se encontraron vehículos exactos publicados con ese nombre.');
+        setResultadosOnline([]);
+      }
+    } catch (error) {
+      console.error("Error al buscar en el mercado:", error);
+      setErrorBusqueda('Hubo un problema al conectar con el mercado online. Intentá de nuevo.');
+    } finally {
       setBuscandoOnline(false);
-    }, 800); // Pequeño delay para dar sensación de búsqueda en vivo
+    }
   };
 
   if (loading) return <div className="p-6 text-center font-semibold text-black">Calculando métricas... 📈</div>;
@@ -119,14 +124,14 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 🔍 COMPARADOR DE VEHÍCULOS PARECIDOS ONLINE */}
+      {/* 🔍 COMPARADOR REAL DE PRECIOS ONLINE */}
       <div className="bg-white p-5 rounded-xl shadow border border-gray-200">
         <div className="flex items-center gap-2 mb-2">
           <FaCar className="text-blue-600" size={18} />
           <h3 className="text-base font-bold text-gray-900">Buscar Vehículos Similares en el Mercado</h3>
         </div>
         <p className="text-xs text-gray-500 mb-4">
-          Ingresá un modelo para traer publicaciones de referencia. Hacé clic en la imagen para ir al sitio de publicación.
+          Consultá fotos y valores reales de la web en tiempo real. Hacé clic en la imagen para ir a la publicación original.
         </p>
 
         <form onSubmit={buscarVehiculosMercado} className="flex gap-2 max-w-xl mb-6">
@@ -134,7 +139,7 @@ export default function DashboardPage() {
             type="text"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Ej: Hilux 2021"
+            placeholder="Ej: Ford Fiesta 2015"
             className="flex-1 p-2.5 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 text-sm transition shadow-inner"
           />
           <button 
@@ -145,35 +150,48 @@ export default function DashboardPage() {
           </button>
         </form>
 
-        {/* GRILLA DE PUBLICACIONES ONLINE */}
-        {buscandoOnline ? (
-          <div className="text-center py-10 text-sm font-semibold text-gray-600 animate-pulse">
-            Buscando coincidencias en deRuedas y MercadoLibre... ⚙️
+        {/* MENSAJES DE ESTADO O ERROR */}
+        {buscandoOnline && (
+          <div className="text-center py-12 text-sm font-semibold text-gray-600 animate-pulse">
+            Escaneando publicaciones reales y vigentes en la web... ⚙️
           </div>
-        ) : resultadosOnline.length > 0 ? (
+        )}
+
+        {errorBusqueda && (
+          <div className="text-center py-8 text-sm font-medium text-amber-600 bg-amber-50 rounded-xl border border-amber-200">
+            {errorBusqueda}
+          </div>
+        )}
+
+        {/* GRILLA CON FOTOS Y PRECIOS REALES */}
+        {!buscandoOnline && resultadosOnline.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {resultadosOnline.map((item) => (
-              <div key={item.id} className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white flex flex-col justify-between">
+              <div key={item.id} className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white flex flex-col justify-between hover:border-gray-300 transition">
                 
-                {/* Imagen cliqueable con link de redirección */}
+                {/* Imagen del vehículo real con link */}
                 <a href={item.enlace} target="_blank" rel="noopener noreferrer" className="relative group block aspect-video w-full bg-gray-100 overflow-hidden">
                   <img 
                     src={item.imagen} 
                     alt={item.titulo} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300" 
+                    className="w-full h-full object-cover group-hover:scale-102 transition duration-300" 
+                    onError={(e) => {
+                      // Si falla el formato HQ, vuelve a la miniatura normal
+                      (e.target as HTMLImageElement).src = item.imagen.replace('-O.jpg', '-I.jpg');
+                    }}
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1">
-                    Ver Publicación original <FaExternalLinkAlt size={10} />
+                    Ver publicación original <FaExternalLinkAlt size={10} />
                   </div>
                 </a>
 
-                {/* Info de la publicación copiada */}
+                {/* Título, Procedencia Geográfica y Precio Extraídos */}
                 <div className="p-3 flex-1 flex flex-col justify-between">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                      {item.origen}
+                      📍 {item.origen}
                     </span>
-                    <h4 className="font-semibold text-sm text-gray-900 mt-1.5 line-clamp-2">{item.titulo}</h4>
+                    <h4 className="font-semibold text-xs md:text-sm text-gray-900 mt-1.5 line-clamp-2 min-h-[32px]">{item.titulo}</h4>
                   </div>
                   <p className="text-base font-black text-gray-950 mt-2">{item.precio}</p>
                 </div>
@@ -181,9 +199,12 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-        ) : (
-          <div className="border border-dashed border-gray-300 rounded-xl py-8 text-center text-xs text-gray-400 font-medium bg-gray-50">
-            Ingresá el vehículo que querés tasar para ver las unidades parecidas del mercado.
+        )}
+
+        {/* ESTADO VACÍO INICIAL */}
+        {!buscandoOnline && resultadosOnline.length === 0 && !errorBusqueda && (
+          <div className="border border-dashed border-gray-300 rounded-xl py-12 text-center text-xs text-gray-400 font-medium bg-gray-50">
+            Ingresá marca y modelo arriba para traer las fotos y tasaciones actuales del mercado.
           </div>
         )}
       </div>
