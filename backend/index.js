@@ -4,20 +4,21 @@ require('dotenv').config();
 const pool = require('./config/db');
 const createTables = require('./config/initDb');
 const vehicleRoutes = require('./routes/vehicleRoutes'); 
-const authRoutes = require('./routes/authRoutes'); // <-- 1. IMPORTAMOS LAS RUTAS DE AUTH
+const authRoutes = require('./routes/authRoutes'); 
+
+// 📍 IMPORTAMOS EL CONTROLADOR NUEVO QUE CORREGIMOS ANTES
+const { getMercadoVehicles } = require('./controllers/vehicleController');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
 
-// 🚀 CAMBIO CLAVE: Aumentamos el límite para soportar las fotos en Base64 desde el celular
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 createTables();
 
-// 🚀 EJECUTOR SQL AUTOMÁTICO
 const adaptarBaseDeDatos = async () => {
   try {
     await pool.query(`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS imagenes TEXT[] DEFAULT '{}';`);
@@ -29,7 +30,10 @@ adaptarBaseDeDatos();
 
 // Rutas de la API
 app.use('/api/vehicles', vehicleRoutes); 
-app.use('/api/auth', authRoutes); // <-- 2. CONECTAMOS EL LOGIN A LA URL
+app.use('/api/auth', authRoutes); 
+
+// 🚀 CONECTAMOS LA RUTA DE MERCADOLIBRE (Va a responder en https://jorge-ortiz.onrender.com/api/mercado)
+app.get('/api/mercado', getMercadoVehicles);
 
 app.get('/', (req, res) => {
   res.json({ mensaje: "API de OrtizAutomotores funcionando correctamente 🚗🔥" });
