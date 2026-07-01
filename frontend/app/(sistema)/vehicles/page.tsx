@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FaCar, FaImage } from 'react-icons/fa';
+import { FaCar, FaImage, FaTrash } from 'react-icons/fa';
 
 interface Vehicle {
   id: number;
@@ -11,7 +11,7 @@ interface Vehicle {
   kilometros: string;
   precio: string;
   estado: string;
-  imagenes?: string[]; // <-- Soportamos la lista de 4 imágenes
+  imagenes?: string[]; 
 }
 
 export default function VehiclesPage() {
@@ -26,8 +26,8 @@ export default function VehiclesPage() {
   const [kilometros, setKilometros] = useState('');
   const [precio, setPrecio] = useState('');
   
-  // 📸 Estado para las 4 URLs de imágenes
-  const [fotoUrls, setFotoUrls] = useState<string[]>(['', '', '', '']);
+  // 📸 Ahora guardamos las imágenes codificadas en Base64 aquí
+  const [imagenesBase64, setImagenesBase64] = useState<string[]>([]);
 
   const URL_BACKEND = 'https://jorge-ortiz.onrender.com/api/vehicles';
 
@@ -48,18 +48,34 @@ export default function VehiclesPage() {
     fetchVehicles();
   }, []);
 
-  const handleFotoUrlChange = (index: number, value: string) => {
-    const nuevasFotos = [...fotoUrls];
-    nuevasFotos[index] = value;
-    setFotoUrls(nuevasFotos);
+  // 🔄 Manejador para procesar los archivos del móvil/cámara
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    // Evaluamos cuántas imágenes se pueden agregar sin superar el límite de 4
+    const espacioDisponible = 4 - imagenesBase64.length;
+    const archivosAProcesar = Array.from(files).slice(0, espacioDisponible);
+
+    archivosAProcesar.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setImagenesBase64((prev) => [...prev, reader.result as string]);
+        }
+      };
+      reader.readAsDataURL(file); // Convierte la imagen a Base64
+    });
+  };
+
+  // 🗑️ Eliminar una foto de la lista de previsualización antes de guardar
+  const eliminarFotoSeleccionada = (indexParaEliminar: number) => {
+    setImagenesBase64(imagenesBase64.filter((_, index) => index !== indexParaEliminar));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!marca || !modelo || !precio) return alert("Marca, Modelo y Precio son obligatorios");
-
-    // Filtramos los casilleros que se hayan dejado vacíos antes de enviar
-    const imagenesValidas = fotoUrls.filter((url) => url.trim() !== '');
 
     try {
       const res = await fetch(URL_BACKEND, {
@@ -72,7 +88,7 @@ export default function VehiclesPage() {
           anio, 
           kilometros, 
           precio,
-          imagenes: imagenesValidas // <-- Enviamos el array de fotos al backend
+          imagenes: imagenesBase64 // <-- Enviamos el array con los Base64 generados
         }),
       });
 
@@ -83,7 +99,7 @@ export default function VehiclesPage() {
         setAnio(2026);
         setKilometros('');
         setPrecio('');
-        setFotoUrls(['', '', '', '']); // Reseteamos los links
+        setImagenesBase64([]); // Reseteamos las fotos cargadas
         fetchVehicles();
       }
     } catch (error) {
@@ -154,21 +170,50 @@ export default function VehiclesPage() {
             <input type="text" value={precio} onChange={(e) => setPrecio(e.target.value)} className="w-full p-2 border rounded bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: $30.000.000" />
           </div>
 
-          {/* 📸 SECCIÓN RE RESPONSIVA PARA RECOPILAR ENLACES DE IMÁGENES */}
+          {/* 📸 NUEVA SECCIÓN DE CARGA MULTIMEDIA DESDE MÓVIL/CÁMARA */}
           <div className="pt-2 border-t border-gray-100 space-y-2">
             <label className="block text-sm font-bold text-gray-800 flex items-center gap-1.5">
-              <FaImage className="text-blue-600" /> Enlaces de Fotos (Soporta 4)
+              <FaImage className="text-blue-600" /> Cargar Fotos (Soporta 4)
             </label>
-            {fotoUrls.map((url, index) => (
-              <input
-                key={index}
-                type="url"
-                value={url}
-                onChange={(e) => handleFotoUrlChange(index, e.target.value)}
-                placeholder={`URL de la imagen ${index + 1} (https://...)`}
-                className="w-full p-2 text-xs border rounded bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              />
-            ))}
+            
+            {imagenesBase64.length < 4 ? (
+              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
+                <div className="flex flex-col items-center justify-center pt-4 pb-4">
+                  <FaImage className="text-gray-400 text-xl mb-1" />
+                  <p className="text-xs text-gray-500 font-medium">Toca para abrir cámara o galería</p>
+                  <p className="text-[10px] text-gray-400">({imagenesBase64.length} de 4 seleccionadas)</p>
+                </div>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  multiple 
+                  onChange={handleFileChange} 
+                  className="hidden" 
+                />
+              </label>
+            ) : (
+              <p className="text-xs text-amber-600 font-semibold text-center bg-amber-50 py-1.5 rounded-lg border border-amber-200">
+                Límite máximo de 4 fotos alcanzado.
+              </p>
+            )}
+
+            {/* Previsualización en miniatura con botón de eliminar */}
+            {imagenesBase64.length > 0 && (
+              <div className="grid grid-cols-4 gap-2 pt-1">
+                {imagenesBase64.map((base64, index) => (
+                  <div key={index} className="relative aspect-square w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-100 group">
+                    <img src={base64} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => eliminarFotoSeleccionada(index)}
+                      className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full text-[10px] hover:bg-red-700 transition"
+                    >
+                      <FaTrash size={8} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition mt-4 shadow-md">
@@ -190,7 +235,7 @@ export default function VehiclesPage() {
             {vehicles.map((car) => (
               <div key={car.id} className="border border-gray-200 rounded-xl shadow-md bg-white flex flex-col justify-between overflow-hidden w-full">
                 
-                {/* 📱 VISOR/CARRUSEL DE IMÁGENES CON EL DEDO */}
+                {/* CARRUSEL DE IMÁGENES */}
                 <div className="relative w-full h-48 bg-gray-100 overflow-hidden group">
                   {car.imagenes && car.imagenes.length > 0 ? (
                     <div className="flex overflow-x-auto h-full snap-x snap-mandatory scrollbar-none scroll-smooth">
@@ -202,10 +247,9 @@ export default function VehiclesPage() {
                             className="w-full h-full object-cover"
                             loading="lazy"
                           />
-                          {/* Contador de fotos */}
-<span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-  {index + 1} / {car.imagenes?.length}
-</span>
+                          <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            {index + 1} / {car.imagenes?.length}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -216,7 +260,6 @@ export default function VehiclesPage() {
                     </div>
                   )}
 
-                  {/* Puntitos guía visuales si hay más de 1 foto */}
                   {car.imagenes && car.imagenes.length > 1 && (
                     <div className="absolute inset-x-0 bottom-1 flex justify-center gap-1 pointer-events-none">
                       {car.imagenes.map((_, i) => (
@@ -242,7 +285,7 @@ export default function VehiclesPage() {
                     <p className="text-xl font-black text-blue-600 mt-2">{car.precio}</p>
                   </div>
 
-                  {/* ACCIONES DE CONTROL RESPONSIVAS */}
+                  {/* ACCIONES DE CONTROL */}
                   <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-gray-100">
                     {car.estado === 'Disponible' ? (
                       <button onClick={() => handleMarcarVendido(car)} className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2 px-3 rounded-lg transition active:scale-95 shadow-sm">
