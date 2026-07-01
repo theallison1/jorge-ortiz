@@ -226,4 +226,35 @@ export default function DashboardPage() {
 
         {/* ESTADO VACÍO */}
         {!buscandoOnline && resultadosOnline.length === 0 && !errorBusqueda && (
-          <div className="border border-dashed border-gray-300 rounded-xl py-12 text-center text-xs text-gray-40
+          <div className="border border-dashed border-gray-300 rounded-xl py-12 text-center text-xs text-gray-400 font-medium bg-gray-50">
+            Ingresá el modelo exacto arriba para renderizar las opciones reales de la red.
+          </div>
+        )}
+      </div>
+
+      {/* REVISIÓN RÁPIDA DE STOCK */}
+      <div className="bg-white p-4 md:p-6 rounded-xl shadow border border-gray-200 overflow-hidden">
+        <h2 className="text-lg md:text-xl font-bold mb-4 text-center sm:text-left">Últimos movimientos de stock</h2>
+        {vehicles.length === 0 ? (
+          <p className="text-gray-500 text-sm text-center sm:text-left">No hay registros para mostrar.</p>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {vehicles.slice(-5).reverse().map((car) => (
+              <div key={car.id} className="py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div className="w-full sm:w-auto">
+                  <p className="font-semibold text-gray-900 text-base">{car.marca} {car.modelo}</p>
+                  <p className="text-xs md:text-sm text-gray-500">Valor de lista: {car.precio}</p>
+                </div>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full self-start sm:self-auto ${
+                  car.estado === 'Disponible' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {car.estado}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
