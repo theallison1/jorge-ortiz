@@ -168,4 +168,12 @@ const deleteVehicle = async (req, res) => {
   }
 };
 
-// Exportación limpia
+// 📦 EXPORTACIÓN COMPLETA PARA TU INDEX/ROUTES
+module.exports = {
+  getMercadoVehicles,
+  getVehicles,
+  getVehicleById,
+  createVehicle,
+  updateVehicle,
+  deleteVehicle
+};
