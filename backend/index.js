@@ -10,7 +10,10 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
-app.use(express.json());
+
+// 🚀 CAMBIO CLAVE: Aumentamos el límite para soportar las fotos en Base64 desde el celular
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 createTables();
 
