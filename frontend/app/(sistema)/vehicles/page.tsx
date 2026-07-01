@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { FaCar, FaImage, FaTrash } from 'react-icons/fa';
@@ -26,7 +27,7 @@ export default function VehiclesPage() {
   const [kilometros, setKilometros] = useState('');
   const [precio, setPrecio] = useState('');
   
-  // 📸 Ahora guardamos las imágenes codificadas en Base64 aquí
+  // 📸 Imágenes codificadas en Base64
   const [imagenesBase64, setImagenesBase64] = useState<string[]>([]);
 
   const URL_BACKEND = 'https://jorge-ortiz.onrender.com/api/vehicles';
@@ -53,7 +54,6 @@ export default function VehiclesPage() {
     const files = e.target.files;
     if (!files) return;
 
-    // Evaluamos cuántas imágenes se pueden agregar sin superar el límite de 4
     const espacioDisponible = 4 - imagenesBase64.length;
     const archivosAProcesar = Array.from(files).slice(0, espacioDisponible);
 
@@ -64,18 +64,44 @@ export default function VehiclesPage() {
           setImagenesBase64((prev) => [...prev, reader.result as string]);
         }
       };
-      reader.readAsDataURL(file); // Convierte la imagen a Base64
+      reader.readAsDataURL(file);
     });
   };
 
-  // 🗑️ Eliminar una foto de la lista de previsualización antes de guardar
+  // 🗑️ Eliminar una foto antes de guardar
   const eliminarFotoSeleccionada = (indexParaEliminar: number) => {
     setImagenesBase64(imagenesBase64.filter((_, index) => index !== indexParaEliminar));
   };
 
+  // 🚀 CREAR VEHÍCULO (Actualización instantánea)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!marca || !modelo || !precio) return alert("Marca, Modelo y Precio son obligatorios");
+
+    // 1. Creamos un objeto provisorio para inyectarlo ya mismo en la pantalla
+    const nuevoVehiculoTemporal: Vehicle = {
+      id: Date.now(), // ID temporal basado en milisegundos
+      marca,
+      modelo,
+      version,
+      anio,
+      kilometros,
+      precio,
+      estado: 'Disponible',
+      imagenes: imagenesBase64
+    };
+
+    // 2. Lo agregamos al principio de la lista instantáneamente
+    setVehicles((prev) => [nuevoVehiculoTemporal, ...prev]);
+
+    // Limpiamos los inputs enseguida para una sensación ultra fluida
+    setMarca('');
+    setModelo('');
+    setVersion('');
+    setAnio(2026);
+    setKilometros('');
+    setPrecio('');
+    setImagenesBase64([]);
 
     try {
       const res = await fetch(URL_BACKEND, {
@@ -88,26 +114,28 @@ export default function VehiclesPage() {
           anio, 
           kilometros, 
           precio,
-          imagenes: imagenesBase64 // <-- Enviamos el array con los Base64 generados
+          imagenes: imagenesBase64 
         }),
       });
 
+      // 3. Cuando Render termine de procesar el Base64, traemos los IDs reales
       if (res.ok) {
-        setMarca('');
-        setModelo('');
-        setVersion('');
-        setAnio(2026);
-        setKilometros('');
-        setPrecio('');
-        setImagenesBase64([]); // Reseteamos las fotos cargadas
         fetchVehicles();
       }
     } catch (error) {
       console.error("Error en la petición:", error);
+      alert("Hubo un problema al sincronizar con el servidor. Recargando catálogo...");
+      fetchVehicles(); // Si falló el guardado real, limpia la UI devolviendo los datos reales
     }
   };
 
+  // 💰 MARCAR VENDIDO (Actualización instantánea)
   const handleMarcarVendido = async (car: Vehicle) => {
+    // Cambia el estado visualmente a 'Vendido' sin esperar la respuesta del servidor
+    setVehicles((prev) =>
+      prev.map((v) => (v.id === car.id ? { ...v, estado: 'Vendido' } : v))
+    );
+
     try {
       const res = await fetch(`${URL_BACKEND}/${car.id}`, {
         method: 'PUT',
@@ -115,20 +143,27 @@ export default function VehiclesPage() {
         body: JSON.stringify({ ...car, estado: 'Vendido' }),
       });
 
-      if (res.ok) fetchVehicles();
+      if (!res.ok) throw new Error();
     } catch (error) {
       console.error("Error al actualizar:", error);
+      fetchVehicles(); // Si falló en Render, revierte el cambio visual
     }
   };
 
+  // 🗑️ ELIMINAR VEHÍCULO (Actualización instantánea)
   const handleEliminar = async (id: number) => {
     if (!confirm("¿Seguro que querés eliminar este vehículo del sistema?")) return;
 
+    // Desaparece de la pantalla en el milisegundo en que haces clic
+    setVehicles((prev) => prev.filter((car) => car.id !== id));
+
     try {
       const res = await fetch(`${URL_BACKEND}/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchVehicles();
+      if (!res.ok) throw new Error();
     } catch (error) {
       console.error("Error al eliminar:", error);
+      alert("No se pudo eliminar del servidor. Recargando...");
+      fetchVehicles(); // Si falló en la base de datos, lo vuelve a traer a pantalla
     }
   };
 
@@ -170,7 +205,7 @@ export default function VehiclesPage() {
             <input type="text" value={precio} onChange={(e) => setPrecio(e.target.value)} className="w-full p-2 border rounded bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: $30.000.000" />
           </div>
 
-          {/* 📸 NUEVA SECCIÓN DE CARGA MULTIMEDIA DESDE MÓVIL/CÁMARA */}
+          {/* 📸 CARGA MULTIMEDIA */}
           <div className="pt-2 border-t border-gray-100 space-y-2">
             <label className="block text-sm font-bold text-gray-800 flex items-center gap-1.5">
               <FaImage className="text-blue-600" /> Cargar Fotos (Soporta 4)
@@ -197,7 +232,7 @@ export default function VehiclesPage() {
               </p>
             )}
 
-            {/* Previsualización en miniatura con botón de eliminar */}
+            {/* Previsualización */}
             {imagenesBase64.length > 0 && (
               <div className="grid grid-cols-4 gap-2 pt-1">
                 {imagenesBase64.map((base64, index) => (
@@ -235,7 +270,7 @@ export default function VehiclesPage() {
             {vehicles.map((car) => (
               <div key={car.id} className="border border-gray-200 rounded-xl shadow-md bg-white flex flex-col justify-between overflow-hidden w-full">
                 
-                {/* CARRUSEL DE IMÁGENES */}
+                {/* CARRUSEL */}
                 <div className="relative w-full h-48 bg-gray-100 overflow-hidden group">
                   {car.imagenes && car.imagenes.length > 0 ? (
                     <div className="flex overflow-x-auto h-full snap-x snap-mandatory scrollbar-none scroll-smooth">
@@ -269,7 +304,7 @@ export default function VehiclesPage() {
                   )}
                 </div>
 
-                {/* DETALLES DEL VEHÍCULO */}
+                {/* DETALLES */}
                 <div className="p-4 flex-1 flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start gap-2">
@@ -285,7 +320,7 @@ export default function VehiclesPage() {
                     <p className="text-xl font-black text-blue-600 mt-2">{car.precio}</p>
                   </div>
 
-                  {/* ACCIONES DE CONTROL */}
+                  {/* ACCIONES */}
                   <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-gray-100">
                     {car.estado === 'Disponible' ? (
                       <button onClick={() => handleMarcarVendido(car)} className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2 px-3 rounded-lg transition active:scale-95 shadow-sm">
