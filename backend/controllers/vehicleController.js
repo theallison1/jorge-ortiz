@@ -1,6 +1,10 @@
+// Al principio de tu controllers/vehicleController.js (arriba de todo), agregá esto:
+const cheerio = require('cheerio');
 const pool = require('../config/db');
 
-// OBTENER AUTOS DE MERCADOLIBRE (Estrategia segura anti-403 con Fallback Automático)
+
+
+// Reemplazá la función getMercadoVehicles por esta:
 const getMercadoVehicles = async (req, res) => {
   const { q } = req.query;
   if (!q) {
@@ -8,51 +12,60 @@ const getMercadoVehicles = async (req, res) => {
   }
 
   try {
-    // 1. URL de búsqueda global ultra-compatible (funciona idéntico a escribir en su buscador)
+    // 1. URL de búsqueda global compatible
     const urlPublica = `https://listado.mercadolibre.com.ar/vehiculos/${encodeURIComponent(q)}`;
 
     const response = await fetch(urlPublica, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'es-AR,es;q=0.9',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
+        'Accept-Language': 'es-AR,es;q=0.9'
       }
     });
 
-    if (!response.ok) {
-      console.error(`Error de conexión con la plataforma. Status: ${response.status}`);
-      throw new Error('Error de plataforma');
-    }
+    if (!response.ok) throw new Error('Error al conectar con MercadoLibre');
 
     const html = await response.text();
-
-    // 2. Expresiones Regulares ultra-flexibles basadas en palabras clave de clases
-    const titulos = [...html.matchAll(/<h2[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)<\/h2>/gi)].map(m => m[1].trim());
-    const enlaces = [...html.matchAll(/<a[^>]*href="([^"]+)"[^>]*class="[^"]*link[^"]*"/gi)].map(m => m[1]);
-    const precios = [...html.matchAll(/<span[^>]*class="[^"]*fraction[^"]*"[^>]*>([^<]+)<\/span>/gi)].map(m => m[1].trim());
-    const imagenes = [...html.matchAll(/<img[^>]*src="([^"]+)"[^>]*class="[^"]*image[^"]*"/gi)].map(m => m[1]);
-
+    
+    // 2. Cargamos el HTML en cheerio para manejarlo como si fuera el DOM
+    const $ = cheerio.load(html);
     const resultados = [];
-    const limite = Math.min(titulos.length, 6); // Extraemos un máximo de 6 opciones
 
-    for (let i = 0; i < limite; i++) {
-      if (titulos[i] && enlaces[i]) {
+    // 3. Buscamos el contenedor de cada publicación de auto
+    $('.ui-search-layout__item').each((i, elemento) => {
+      if (resultados.length >= 6) return false; // Límite de 6 elementos
+
+      // Extraemos los datos usando selectores CSS estables de MercadoLibre
+      const title = $(elemento).find('.ui-search-item__title').text().trim();
+      const permalink = $(elemento).find('.ui-search-link').attr('href');
+      const priceText = $(elemento).find('.andes-money-amount__fraction').first().text().trim();
+      
+      // Manejo inteligente de imágenes fijándose en atributos diferidos (lazy load)
+      let thumbnail = $(elemento).find('.ui-search-result-image__element').attr('data-src') || 
+                      $(elemento).find('.ui-search-result-image__element').attr('src');
+
+      if (title && permalink) {
+        // Limpiamos los puntos del precio para pasarlo a número puro
+        const price = priceText ? parseInt(priceText.replace(/\./g, ''), 10) : 0;
+
+        // Convertimos la imagen a máxima calidad
+        if (thumbnail) {
+          thumbnail = thumbnail.replace('-I.jpg', '-O.jpg').replace('-V.jpg', '-O.jpg');
+        }
+
         resultados.push({
           id: `ml-${i}-${Date.now()}`,
-          title: titulos[i],
-          price: precios[i] ? parseInt(precios[i].replace(/\./g, ''), 10) : 0, 
+          title,
+          price,
           address: { state_name: "Argentina" },
-          thumbnail: imagenes[i] ? imagenes[i].replace('-I.jpg', '-O.jpg').replace('-V.jpg', '-O.jpg') : 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=400&q=80',
-          permalink: enlaces[i]
+          thumbnail: thumbnail || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=400&q=80',
+          permalink
         });
       }
-    }
+    });
 
-    // 3. SEGURO ANTI-PANTALLA VACÍA: Si el raspado devolvió 0 items, mandamos el link directo para que no se tranque la interfaz
+    // 4. Si fallan los selectores específicos por algún rediseño imprevisto, mantenemos la contingencia prolija
     if (resultados.length === 0) {
-      console.log("Raspado vacío, entregando tarjeta de acceso de contingencia.");
       return res.json({
         results: [
           {
@@ -71,7 +84,6 @@ const getMercadoVehicles = async (req, res) => {
 
   } catch (error) {
     console.error('Error en el buscador auxiliar:', error.message);
-    // Respuesta de emergencia si se cae el fetch
     return res.json({
       results: [
         {
