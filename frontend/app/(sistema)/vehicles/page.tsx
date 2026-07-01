@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { FaCar, FaImage, FaTrash } from 'react-icons/fa';
@@ -49,7 +48,7 @@ export default function VehiclesPage() {
     fetchVehicles();
   }, []);
 
-  // 🔄 Manejador para procesar los archivos del móvil/cámara
+  // 🔄 Manejador para procesar los archivos del móvil/cámara con compresión
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -60,9 +59,41 @@ export default function VehiclesPage() {
     archivosAProcesar.forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setImagenesBase64((prev) => [...prev, reader.result as string]);
-        }
+        const img = new Image();
+        img.src = reader.result as string;
+        
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Redimensionamos la resolución para que no pese megabytes de más
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Comprimimos al 60% de calidad para ahorrar espacio y mejorar velocidad
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+            setImagenesBase64((prev) => [...prev, compressedBase64]);
+          }
+        };
       };
       reader.readAsDataURL(file);
     });
@@ -78,9 +109,9 @@ export default function VehiclesPage() {
     e.preventDefault();
     if (!marca || !modelo || !precio) return alert("Marca, Modelo y Precio son obligatorios");
 
-    // 1. Creamos un objeto provisorio para inyectarlo ya mismo en la pantalla
+    // 1. Objeto provisorio para inyectarlo ya mismo en la pantalla
     const nuevoVehiculoTemporal: Vehicle = {
-      id: Date.now(), // ID temporal basado en milisegundos
+      id: Date.now(),
       marca,
       modelo,
       version,
@@ -91,10 +122,10 @@ export default function VehiclesPage() {
       imagenes: imagenesBase64
     };
 
-    // 2. Lo agregamos al principio de la lista instantáneamente
+    // 2. Agregado inmediato al catálogo visual
     setVehicles((prev) => [nuevoVehiculoTemporal, ...prev]);
 
-    // Limpiamos los inputs enseguida para una sensación ultra fluida
+    // Limpieza rápida de inputs
     setMarca('');
     setModelo('');
     setVersion('');
@@ -118,20 +149,18 @@ export default function VehiclesPage() {
         }),
       });
 
-      // 3. Cuando Render termine de procesar el Base64, traemos los IDs reales
       if (res.ok) {
-        fetchVehicles();
+        fetchVehicles(); // Sincroniza con los IDs reales de la base de datos
       }
     } catch (error) {
       console.error("Error en la petición:", error);
       alert("Hubo un problema al sincronizar con el servidor. Recargando catálogo...");
-      fetchVehicles(); // Si falló el guardado real, limpia la UI devolviendo los datos reales
+      fetchVehicles(); 
     }
   };
 
   // 💰 MARCAR VENDIDO (Actualización instantánea)
   const handleMarcarVendido = async (car: Vehicle) => {
-    // Cambia el estado visualmente a 'Vendido' sin esperar la respuesta del servidor
     setVehicles((prev) =>
       prev.map((v) => (v.id === car.id ? { ...v, estado: 'Vendido' } : v))
     );
@@ -146,7 +175,7 @@ export default function VehiclesPage() {
       if (!res.ok) throw new Error();
     } catch (error) {
       console.error("Error al actualizar:", error);
-      fetchVehicles(); // Si falló en Render, revierte el cambio visual
+      fetchVehicles(); 
     }
   };
 
@@ -154,7 +183,6 @@ export default function VehiclesPage() {
   const handleEliminar = async (id: number) => {
     if (!confirm("¿Seguro que querés eliminar este vehículo del sistema?")) return;
 
-    // Desaparece de la pantalla en el milisegundo en que haces clic
     setVehicles((prev) => prev.filter((car) => car.id !== id));
 
     try {
@@ -163,7 +191,7 @@ export default function VehiclesPage() {
     } catch (error) {
       console.error("Error al eliminar:", error);
       alert("No se pudo eliminar del servidor. Recargando...");
-      fetchVehicles(); // Si falló en la base de datos, lo vuelve a traer a pantalla
+      fetchVehicles(); 
     }
   };
 
@@ -205,7 +233,7 @@ export default function VehiclesPage() {
             <input type="text" value={precio} onChange={(e) => setPrecio(e.target.value)} className="w-full p-2 border rounded bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: $30.000.000" />
           </div>
 
-          {/* 📸 CARGA MULTIMEDIA */}
+          {/* 📸 CARGA MULTIMEDIA DESDE MÓVIL/CÁMARA */}
           <div className="pt-2 border-t border-gray-100 space-y-2">
             <label className="block text-sm font-bold text-gray-800 flex items-center gap-1.5">
               <FaImage className="text-blue-600" /> Cargar Fotos (Soporta 4)
@@ -232,7 +260,7 @@ export default function VehiclesPage() {
               </p>
             )}
 
-            {/* Previsualización */}
+            {/* Previsualización en miniaturas */}
             {imagenesBase64.length > 0 && (
               <div className="grid grid-cols-4 gap-2 pt-1">
                 {imagenesBase64.map((base64, index) => (
@@ -270,7 +298,7 @@ export default function VehiclesPage() {
             {vehicles.map((car) => (
               <div key={car.id} className="border border-gray-200 rounded-xl shadow-md bg-white flex flex-col justify-between overflow-hidden w-full">
                 
-                {/* CARRUSEL */}
+                {/* CARRUSEL DE IMÁGENES */}
                 <div className="relative w-full h-48 bg-gray-100 overflow-hidden group">
                   {car.imagenes && car.imagenes.length > 0 ? (
                     <div className="flex overflow-x-auto h-full snap-x snap-mandatory scrollbar-none scroll-smooth">
@@ -304,7 +332,7 @@ export default function VehiclesPage() {
                   )}
                 </div>
 
-                {/* DETALLES */}
+                {/* DETALLES DEL VEHÍCULO */}
                 <div className="p-4 flex-1 flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start gap-2">
@@ -320,7 +348,7 @@ export default function VehiclesPage() {
                     <p className="text-xl font-black text-blue-600 mt-2">{car.precio}</p>
                   </div>
 
-                  {/* ACCIONES */}
+                  {/* ACCIONES DE CONTROL */}
                   <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-gray-100">
                     {car.estado === 'Disponible' ? (
                       <button onClick={() => handleMarcarVendido(car)} className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2 px-3 rounded-lg transition active:scale-95 shadow-sm">
